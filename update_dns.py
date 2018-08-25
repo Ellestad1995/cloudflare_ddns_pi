@@ -4,17 +4,16 @@ import requests
 import json
 import sys
 
+##
 # Change apiKey, myDomain, emailAddress and ddns
-apiKey = "xxxxxxxxxxxxxxxx"
-myDomain = "example.com"
-emailAddress = "mail@example.com"
-ddns = "proxy.example.com" # subdomain to be updated
+##
+apiKey = ""
+emailAddress = ""
 
-baseUrl = "https://api.cloudflare.com/client/v4/"
-cfIp = "" # The ip cloudflare has for the ddns - this is updated by the script
 header ={ "X-Auth-Email" : emailAddress, "X-Auth-Key" : apiKey, "Content-Type" : "application/json" }
+baseUrl = "https://api.cloudflare.com/client/v4/"
 
-debug = true # Enable debugging to print data
+debug = True # Enable debugging to print data
 
 def printUsage():
     print("Usage is: " + sys.agv[0] + "<path/to/records.json> or <domain>")
@@ -40,90 +39,101 @@ def readRecordsFile():
 
 
 def main():
-    if len(sys.argv != 2):
-        printUsage()
-        sys.exit(0)
 
     globalIP = getGlobalIp()
     records = readRecordsFile()
+    global baseUrl
 
-    for domain in len(records):
+    for domain in records:
         if debug:
-            print("Working on: " + records[domain])
+            print("Started on: " + json.dumps(domain))
         baseUrl = "https://api.cloudflare.com/client/v4/"
         if debug:
-            print("domain: " + records[domain]["domain"])
+            print("\n\ndomain: " + domain["domain"] + "\n\n")
 
+        ##
+        #Zone id is unique for each domain, perhaps
+        ##
+        zoneid = ""
         # Try to the zone id for the domain
         # If this fails we need to end the script
         try:
-            getZoneFor(records[domain]["domain"])
-        except as e:
-            if hasattr(e, 'message'):
-                print(e.message)
-                sys.exit(1)
-            else:
-                print(e)
+            zoneid = getZoneFor(domain["domain"])
+        except Exception as e:
+            print(e)
+            print("\nFailed to get zone for: " + domain["domain"] + "\n")
+            sys.exit(1)
 
         # Loop over all the domains
-        for d in records[domain]["records"]:
-            record = records[domain]["records"][d]
-            ddns = record["name"]
+        for d in domain["records"]:
+            ddns = d["name"]
 
             if debug:
                 print("Working on " + ddns)
 
-            cloudFId, cloudFIpaddr = ""
+            cloudFId = ""
+            cloudFIpaddr = ""
 
             try:
-                cloudFId, cloudFIpaddr = getIdFor(ddns)
-            except as e:
+                cloudFId, cloudFIpaddr = getIdFor(domain=ddns, inZone=zoneid)
+            except Exception as e:
                 if debug:
                     print(e)
-            if cloudFId == "" && cloudFIpaddr == "":
+
+            if cloudFId == "" and cloudFIpaddr == "":
                 # Creating new record
                 try:
-                    createRecordFor(domain = ddns, type=record["type"], content=globalIP, ttl=120, proxied=record["proxied"])
-                except as e:
-                    print(e.message)
+                    createRecordFor(domain = ddns, inZone=zoneid, type=d["type"], content=globalIP, ttl=120, proxied=d["proxied"])
+                except Exception as e:
+                    print(e)
             else:
                 # Already exist update the existing
-
                 if cloudFIpaddr == globalIP:
                     # No need to update if ip isn't changed
                     if debug:
                         print("global ip addr didn't change. Dont update")
                 else:
                     try:
-                        updateRecordFor(domain = ddns, type=record["type"], content=globalIP, ttl=120, proxied=record["proxied"])
-                    except as e:
-                        print(e.message)
-    sys.exit(0)
+                        updateRecordFor(domain = ddns, id = cloudFId, inZone=zoneid, type=d["type"], content=globalIP, ttl=120, proxied=d["proxied"])
+                    except Exception as e:
+                        print(e)
+
 
 def getZoneFor(domain):
+    if debug:
+        print("\ngetZoneFor(" + domain + ")\n")
     # Get the zone id
-    baseUrl += "zones/"
+    global baseUrl
+    url = baseUrl
+    url += "zones/"
     parameters = {'name':domain}
-    zoneReq = requests.get(url= baseUrl, headers= header, params= parameters)
+    zoneReq = requests.get(url= url, headers= header, params= parameters)
 
     if zoneReq.status_code == requests.codes.ok:
         # Determine if request was successfull
         response = json.loads(zoneReq.text)
-        if response["success"] == True && len(response["result"] > 0):
+        if response["success"] == True and len(response["result"]) > 0:
             zoneId = response["result"][0]["id"]
-            # Update the baseurl with zoneId
-            baseUrl += zoneId
-            baseUrl += "/"
+            if debug:
+                print("Zone for " + domain + " is: " + zoneId)
+            return zoneId
         else:
             if debug:
                 print("Could not get zoneid")
             raise Exception("Could not get zoneid")
 
 # Get the record id of the domain
-def getIdFor(domain):
+def getIdFor(domain, inZone):
+    if debug:
+        print("\ngetIdFor(" + domain + ")")
+
+    global baseUrl
+    url = baseUrl
+    url += 'zones/' + inZone + '/dns_records/'
+
     payload = {'type':'A', 'name':domain}
-    baseUrl += "dns_records/"
-    s = requests.get(baseUrl, headers = header, params = payload )
+
+    s = requests.get(url, headers = header, params = payload )
     if s.status_code == requests.codes.ok:
         if debug:
             print(s.url)
@@ -135,39 +145,46 @@ def getIdFor(domain):
             if len(json_obj["result"]) > 0:
                 cfIdentifier = json_obj["result"][0]["id"]
                 cfIp = json_obj["result"][0]["content"]
-                #baseUrl += cfIdentifier
+    
                 if debug:
                     print(cfIdentifier)
                 return cfIdentifier, cfIp
             else:
-                raise Exception("Record for domain " + domain + "does not exist yet")
+                raise Exception("\nRecord for domain " + domain + " does not exist yet\n")
                 # Means the record doesn't exist - need to create it
                 #print("Creating dns record")
     else:
         raise Exception("Request failed")
 
-def createRecordFor(domain, type, content, ttl, proxied):
+def createRecordFor(domain, inZone, type, content, ttl, proxied):
+    global baseUrl
+    url = baseUrl
+    url += 'zones/'+ inZone + '/dns_records/'
     if debug:
-        print("Creating record for" + domain)
+        print("\nCreating record for " + domain + "\n")
 
     create_dns_record_payload = json.dumps({'type':type, 'name':domain, 'content':content, 'proxied':proxied, 'ttl':ttl, 'priority':10})
-    create_dns_record_req = requests.post(baseUrl, headers = header, data = create_dns_record_payload)
-    if create_dns_record_req.ok == requests.codes.ok :
-        # Successfully created domain
+    create_dns_record_req = requests.post(url, headers = header, data = create_dns_record_payload)
+
+    response = json.loads(create_dns_record_req.text)
+    if response["success"] == True:
         if debug:
-            print(create_dns_record_req.text)
-    else:
-        # Could not create dns record
+            print("\nRecord for " + domain + " created successfully\n")
+            print("Details:\n\n" + json.dumps(response["result"]))
+    else: # Could not create dns record
         if debug:
-            print("Could not create dns record ")
+            print("\n**Could not create dns record**\n")
             print(create_dns_record_req.url)
             print(create_dns_record_req.text)
-        raise Exception("Could not create dns record for " + domain + " at: " + content)
+        raise Exception("\nCould not create dns record for " + domain + " at: " + content + "\n")
 
 
-def updateRecordFor(domain, type, content, ttl, proxied):
+def updateRecordFor(domain, id, type, content, ttl, proxied):
+    global baseUrl
+    url = baseUrl
+    url += 'zones/'+ inZone + '/dns_records/' + id + '/'
     if debug:
-        print("Update record " + domain + "with ip: " + ipaddr)
+        print("\nUpdate record " + domain + "with ip: " + ipaddr + "\n")
 
     update_payload = {'type':type, 'name':domain,'content':content, 'proxied':proxied}
     updateReq = requests.put(baseUrl, headers = header, params = update_payload)
@@ -177,14 +194,17 @@ def updateRecordFor(domain, type, content, ttl, proxied):
         if response["success"] == True:
             # Update was successfull
             if debug:
-                print("Update on " + domain + "was successfull")
+                print("\nUpdate on " + domain + "was successfull\n")
         else:
             if debug:
-                print("Update on " + domain + "failed")
+                print("\nUpdate on " + domain + "failed\n")
     else:
-        raise Exception("Request failed. Network may be down")
+        raise Exception("\nRequest failed. Network may be down\n")
 
 
 if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        printUsage()
+        sys.exit(0)
     main()
     sys.exit(0)

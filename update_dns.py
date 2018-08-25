@@ -16,7 +16,7 @@ baseUrl = "https://api.cloudflare.com/client/v4/"
 debug = True # Enable debugging to print data
 
 def printUsage():
-    print("Usage is: " + sys.agv[0] + "<path/to/records.json> or <domain>")
+    print("Usage is: " + sys.argv[0] + "<path/to/records.json> or <domain>")
     print("Currently only supports reading records from file")
 
 def getGlobalIp():
@@ -145,7 +145,7 @@ def getIdFor(domain, inZone):
             if len(json_obj["result"]) > 0:
                 cfIdentifier = json_obj["result"][0]["id"]
                 cfIp = json_obj["result"][0]["content"]
-    
+
                 if debug:
                     print(cfIdentifier)
                 return cfIdentifier, cfIp

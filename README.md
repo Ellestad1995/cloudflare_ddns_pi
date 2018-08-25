@@ -1,8 +1,7 @@
 # Updating Cloudflare dns record when WAN has dynamic ip
 Script written in Python3 for updating dns records at Cloudflare using their api.
 
-It currently only supports updating one ddns at a time.
-You can modify this to include all subdomains that has ddns.
+Uses a records.json to read which domains and subdomains to handle. 
 
 ## My setup
 

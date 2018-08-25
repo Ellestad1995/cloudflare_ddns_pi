@@ -1,0 +1,6 @@
+[
+{
+  "domain":"nivlheim.cloud",
+  "records":[{"type":"A", "name":"bifrost.nivlheim.cloud", "content":"", "ttl":"1", "proxied":true}, {"type":"A", "name":"plex.nivlheim.cloud", "content":"", "ttl":"1", "proxied":true}]
+}
+]

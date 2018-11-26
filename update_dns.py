@@ -179,7 +179,7 @@ def createRecordFor(domain, inZone, type, content, ttl, proxied):
         raise Exception("\nCould not create dns record for " + domain + " at: " + content + "\n")
 
 
-def updateRecordFor(domain, id, type, content, ttl, proxied):
+def updateRecordFor(domain, id, inZone, type, content, ttl, proxied):
     global baseUrl
     url = baseUrl
     url += 'zones/'+ inZone + '/dns_records/' + id + '/'

@@ -5,14 +5,26 @@ Uses a json file hosted on a private gist on github.
 
 The script authenticates to github to retrieve the newest `dns_records` gist and updates the entries on Cloudflare.
 
-## Setup 
+# Setup 
 
-1. gist
-Create a private gist on Github to host the file.
+1. Create gist with records and make api token
+2. 
 
-Name `dns_records`
+## 1. gist
 
-Example:
+### Create a private gist on Github to host the records file.
+
+Name it whatever you want, e.g. `dns_records`. 
+
+**Copy the url to the gist** and insert it into `update_dns.py`, into the `GHDNSRecordsGistUrl` variable.
+
+![Click Raw button](./fig/click_raw_gist.PNG)
+
+![Copy gist url](./fig/copy_gist_url.PNG)
+
+
+
+Example records file:
 ```json
 {
   "dns_records": [
@@ -57,22 +69,49 @@ Example:
   ]
 }
 ```
+ 
+### Create access token
 
-2. Setup systemd or task scheduler
+ Create a access token from [https://github.com/settings/tokens/new](https://github.com/settings/tokens/new).
+ 
+ Selected scopes: `gist`
 
-Systemd or windows task scheduler is used to run the docker container on a schedule. The task also updates the project files.
+**Copy the access token** and instert it into `update_dns.py` in the `GHPersonalAccessToken` variable.
+
+
+## 2. Setup docker
+
+```bash
+docker run -d cloudflarednsupdater:latest \
+--env  GHPERSONALACCESSTOKEN='' \
+--env GHDNSRECORDSGISTURL='' \
+--env CFAPITOKEN='' \
+--name cloudflarednsupdater dockerhubid/imagename
+```
+
+
+
+## 2. Setup systemd or task scheduler
+
+TODO:
+
+`Systemd` or Windows Task Scheduler is used to run the docker container on a schedule. The task also updates the project files.
+
+> The script can be run as ofte as you want. But every 6 hours should be sufficient.
+
 
 ```systemd
 [Unit]
-Description=Executes mystuff
+Description=Execute updata dns script
 After=default.target docker_network_apps.service
 Requires=default.target docker_network_apps.service
 
 [Service]
 Type=oneshot
 User=root
-ExecStartPre=/usr/bin/docker pull mystuff:stable
-ExecStartPre=-/bin/bash -c "/usr/bin/docker rm -f mystuffcontainer 2>/dev/null"
+ExecStartPre=/bin/bash -c "git pull <url>" 
+ExecStartPre=/usr/bin/docker pull python:latest
+ExecStartPre=/bin/bash -c "/usr/bin/docker rm -f  2>/dev/null"
 ExecStart=/bin/bash -c "/usr/bin/docker run --name mystuffcontainer mystuff:stable mystuff"
 ```
 

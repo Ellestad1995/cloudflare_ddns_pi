@@ -1,0 +1,42 @@
+{
+  "dns_records": [
+    {
+      "domain": "nivlheim.cloud",
+      "records": [
+        {
+          "type": "A",
+          "name": "bifrost.nivlheim.cloud",
+          "content": "",
+          "ttl": "1",
+          "proxied": true
+        },
+        {
+          "type": "A",
+          "name": "plex.nivlheim.cloud",
+          "content": "",
+          "ttl": "1",
+          "proxied": true
+        }
+      ]
+    },
+    {
+      "domain": "joaprint.xyz",
+      "records": [
+        {
+          "type": "A",
+          "name": "www.joaprint.xyz",
+          "content": "",
+          "ttl": "1",
+          "proxied": true
+        },
+        {
+          "type": "A",
+          "name": "www.joaprint.xyz",
+          "content": "",
+          "ttl": "1",
+          "proxied": true
+        }
+      ]
+    }
+  ]
+}
